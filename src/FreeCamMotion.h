@@ -1,22 +1,64 @@
 #pragma once
 
-#include <IPluginInterface.h>
+#include <unordered_map>
 
-#include <Glacier/SGameUpdateEvent.h>
+#include "IPluginInterface.h"
 
-class FreeCamMotion : public IPluginInterface {
+#include <Glacier/ZEntity.h>
+#include <Glacier/ZInput.h>
+
+class FreeCamMotion : public IPluginInterface
+{
 public:
-    void OnEngineInitialized() override;
+    FreeCamMotion();
     ~FreeCamMotion() override;
+
+    void Init() override;
+    void OnEngineInitialized() override;
     void OnDrawMenu() override;
     void OnDrawUI(bool p_HasFocus) override;
 
 private:
     void OnFrameUpdate(const SGameUpdateEvent& p_UpdateEvent);
-    DECLARE_PLUGIN_DETOUR(FreeCamMotion, void, OnLoadScene, ZEntitySceneContext* th, ZSceneData& p_SceneData);
+    void ToggleFreecam();
+    void EnableFreecam();
+    void DisableFreecam();
+
+    void SetCameraDestination();
+    void SetCameraStart();
+    void BeginCameraMove();
+    void EndCameraMove();
+    void CamMoveUpdate(float p_Progress);
+    void CamJumpToDestination();
 
 private:
-    bool m_ShowMessage = false;
+    DECLARE_PLUGIN_DETOUR(FreeCamMotion, bool, ZInputAction_Digital, ZInputAction* th, int a2);
+    DECLARE_PLUGIN_DETOUR(FreeCamMotion, void, OnLoadScene, ZEntitySceneContext*, ZSceneData&);
+    DECLARE_PLUGIN_DETOUR(FreeCamMotion, void, OnClearScene, ZEntitySceneContext*, bool);
+
+private:
+    volatile bool m_FreeCamActive;
+    volatile bool m_ShouldToggle;
+    volatile bool m_FreeCamFrozen;
+    ZEntityRef m_OriginalCam;
+    ZInputAction m_ToggleFreeCamAction;
+    ZInputAction m_FreezeFreeCamActionGc;
+    ZInputAction m_FreezeFreeCamActionKb;
+    bool m_ControlsVisible;
+    bool m_HasToggledFreecamBefore;
+    std::unordered_map<std::string, std::string> m_PcControls;
+    std::unordered_map<std::string, std::string> m_ControllerControls;
+
+    bool m_CamDestinationSet;
+    bool m_CamStartSetManual;
+    bool m_CamMoveActive;
+    float4 m_CamDestPosition;
+    float4 m_CamStartPosition;
+    float4 m_CamMovePosDelta;
+    float m_CamDestOrientation[3];
+    float m_CamStartOrientation[3];
+    float m_CamMoveOrientationDelta[3];
+    float m_CamMoveProgress;
 };
 
-DEFINE_ZHM_PLUGIN(FreeCamMotion)
+DECLARE_ZHM_PLUGIN(FreeCamMotion)
