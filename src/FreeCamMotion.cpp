@@ -28,9 +28,12 @@ FreeCamMotion::FreeCamMotion() :
     m_FreezeFreeCamActionGc("ActivateGameControl0"),
     m_FreezeFreeCamActionKb("KBMInspectNode"),
     m_ControlsVisible(false),
+    m_SettingsVisible(false),
     m_HasToggledFreecamBefore(false),
     m_CamMoveActive(false),
-    m_CamDestinationSet(false)
+    m_CamDestinationSet(false),
+    m_CamMoveMode(CamMoveMode::LINEAR),
+    m_CamMoveDuration(5.0f)
 {
     m_PcControls = {
         { "P", "Toggle freecam" },
@@ -297,8 +300,11 @@ void FreeCamMotion::OnDrawMenu()
         ToggleFreecam();
     }
 
-    if (ImGui::Button(ICON_MD_SPORTS_ESPORTS " FREECAM CONTROLS"))
+    if (ImGui::Button(ICON_MD_SPORTS_ESPORTS " Freecam Controls"))
         m_ControlsVisible = !m_ControlsVisible;
+
+    if (ImGui::Button("Camera Move Settings"))
+        m_SettingsVisible = !m_SettingsVisible;
 
     if (ImGui::Button("Set Cam Destination"))
         if (m_FreeCamActive)
@@ -367,6 +373,34 @@ void FreeCamMotion::DisableFreecam()
 
 void FreeCamMotion::OnDrawUI(bool p_HasFocus)
 {
+    if (m_SettingsVisible)
+    {
+        ImGui::PushFont(SDK()->GetImGuiBlackFont());
+        ImGui::SetNextWindowSize(ImVec2());
+        const auto s_ControlsExpanded = ImGui::Begin(ICON_MD_PHOTO_CAMERA " Camera Move Settings", &m_SettingsVisible);
+        ImGui::PushFont(SDK()->GetImGuiRegularFont());
+
+        ImGui::SliderFloat("Duration", &m_CamMoveDuration, 0.5f, 15.0f);
+
+        if (ImGui::BeginPopupContextItem("MvMode"))
+        {
+            for (int i = 0; i < NUM_MOVE_MODES; i++)
+            {
+                if (ImGui::MenuItem(m_MoveModeText[i]))
+                    m_CamMoveMode = (CamMoveMode) i;
+            }
+
+            ImGui::EndPopup();
+        }
+
+        if (ImGui::Button(m_MoveModeText[m_CamMoveMode]))
+            ImGui::OpenPopup("MvMode");
+
+        ImGui::PopFont();
+        ImGui::End();
+        ImGui::PopFont();
+    }
+
     if (m_ControlsVisible)
     {
         ImGui::PushFont(SDK()->GetImGuiBlackFont());
