@@ -149,6 +149,13 @@ void FreeCamMotion::OnFrameUpdate(const SGameUpdateEvent& p_UpdateEvent)
 
             CamMoveUpdate(m_CamMoveProgress);
         }
+        else
+        {
+            // Keybind to begin camera move
+            // TODO: Use proper input method
+            if (GetAsyncKeyState(VK_F9))
+                BeginCameraMove();
+        }
 
         // Determine freecam freeze status
         if (Functions::ZInputAction_Digital->Call(&m_FreezeFreeCamActionKb, -1))
@@ -233,11 +240,11 @@ void FreeCamMotion::CamMoveUpdate(float p_Progress)
             break;
 
         case RAMP_DOWN:
-            s_ProgressActual = 1 + pow(p_Progress - 1, 3);
+            s_ProgressActual = 1.0f + pow(p_Progress - 1.0f, 3);
             break;
 
         case RAMP_UP_DOWN:
-            s_ProgressActual = 1 / (1 + pow(p_Progress / (1 - p_Progress), -2));
+            s_ProgressActual = 1.0f / (1.0f + pow(p_Progress / (1.0f - p_Progress), -2));
             break;
 
         default:
@@ -408,9 +415,9 @@ void FreeCamMotion::OnDrawUI(bool p_HasFocus)
         const auto s_ControlsExpanded = ImGui::Begin(ICON_MD_PHOTO_CAMERA " Camera Move Settings", &m_SettingsVisible);
         ImGui::PushFont(SDK()->GetImGuiRegularFont());
 
-        ImGui::SliderInt("Duration", &m_CamMoveDuration, 1, 15);
+        ImGui::SliderInt("Duration", &m_CamMoveDuration, 1, 15, "%d sec.");
 
-        if (ImGui::BeginPopupContextItem("MvMode"))
+        if (ImGui::BeginPopup("MvMode"))
         {
             for (int i = 0; i < NUM_MOVE_MODES; i++)
             {
@@ -420,6 +427,8 @@ void FreeCamMotion::OnDrawUI(bool p_HasFocus)
 
             ImGui::EndPopup();
         }
+
+        ImGui::TextUnformatted("Mode:");
 
         if (ImGui::Button(m_MoveModeText[m_CamMoveMode]))
             ImGui::OpenPopup("MvMode");
