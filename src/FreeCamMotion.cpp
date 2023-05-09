@@ -33,7 +33,7 @@ FreeCamMotion::FreeCamMotion() :
     m_CamMoveActive(false),
     m_CamDestinationSet(false),
     m_CamMoveMode(CamMoveMode::LINEAR),
-    m_CamMoveDuration(5.0f)
+    m_CamMoveDuration(5)
 {
     m_PcControls = {
         { "P", "Toggle freecam" },
@@ -135,19 +135,10 @@ void FreeCamMotion::OnFrameUpdate(const SGameUpdateEvent& p_UpdateEvent)
 
     if (m_FreeCamActive)
     {
-        // Determine freecam freeze status
-        if (Functions::ZInputAction_Digital->Call(&m_FreezeFreeCamActionKb, -1))
-            m_FreeCamFrozen = !m_FreeCamFrozen;
-
-        const bool s_FreezeFreeCam = Functions::ZInputAction_Digital->Call(&m_FreezeFreeCamActionGc, -1) || m_FreeCamFrozen;
-
-        (*Globals::ApplicationEngineWin32)->m_pEngineAppCommon.m_pFreeCameraControl01.m_pInterfaceRef->m_bFreezeCamera = s_FreezeFreeCam;
-
         // Update camera move if active
         if (m_CamMoveActive)
         {
-            // TODO: User-configured dynamic move speed
-            m_CamMoveProgress += 0.2f * p_UpdateEvent.m_GameTimeDelta.ToSeconds();
+            m_CamMoveProgress += m_CamMoveSpeed * p_UpdateEvent.m_GameTimeDelta.ToSeconds();
 
             if (m_CamMoveProgress > 1.0f)
             {
@@ -157,6 +148,14 @@ void FreeCamMotion::OnFrameUpdate(const SGameUpdateEvent& p_UpdateEvent)
 
             CamMoveUpdate(m_CamMoveProgress);
         }
+
+        // Determine freecam freeze status
+        if (Functions::ZInputAction_Digital->Call(&m_FreezeFreeCamActionKb, -1))
+            m_FreeCamFrozen = !m_FreeCamFrozen;
+
+        const bool s_FreezeFreeCam = Functions::ZInputAction_Digital->Call(&m_FreezeFreeCamActionGc, -1) || m_FreeCamFrozen;
+
+        (*Globals::ApplicationEngineWin32)->m_pEngineAppCommon.m_pFreeCameraControl01.m_pInterfaceRef->m_bFreezeCamera = s_FreezeFreeCam;
 
         // While freecam is active, only enable hitman input when the "freeze camera" button is pressed.
         TEntityRef<ZHitman5> s_LocalHitman;
@@ -211,6 +210,7 @@ void FreeCamMotion::BeginCameraMove()
     m_CamMoveOrientationDelta[2] = m_CamDestOrientation[2] - m_CamStartOrientation[2];
 
     m_CamMoveProgress = 0.f;
+    m_CamMoveSpeed = 1.0f / m_CamMoveDuration;
     m_CamMoveActive = true;
 }
 
@@ -221,13 +221,34 @@ void FreeCamMotion::EndCameraMove()
 
 void FreeCamMotion::CamMoveUpdate(float p_Progress)
 {
+    // Calculate actual progress based on move mode
+    float s_ProgressActual;
+
+    switch (m_CamMoveMode)
+    {
+        case RAMP_UP:
+            s_ProgressActual = p_Progress * p_Progress;
+            break;
+
+        case RAMP_DOWN:
+            s_ProgressActual = 1 + pow(p_Progress - 1, 3);
+            break;
+
+        case RAMP_UP_DOWN:
+            s_ProgressActual = 1 / (1 + pow(p_Progress / (1 - p_Progress), -2));
+            break;
+
+        default:
+            s_ProgressActual = p_Progress;
+    }
+
     SMatrix s_CameraTrans;
 
     // Interpolate camera translation (position)
-    s_CameraTrans.Trans = m_CamStartPosition + (m_CamMovePosDelta * p_Progress);
+    s_CameraTrans.Trans = m_CamStartPosition + (m_CamMovePosDelta * s_ProgressActual);
 
     // Calculate X rotaion matrix from pitch
-    float s_Pitch = m_CamStartOrientation[0] + (m_CamMoveOrientationDelta[0] * p_Progress);
+    float s_Pitch = m_CamStartOrientation[0] + (m_CamMoveOrientationDelta[0] * s_ProgressActual);
     SMatrix s_RotationX;
 
     s_RotationX.YAxis.y = cos(s_Pitch);
@@ -237,7 +258,7 @@ void FreeCamMotion::CamMoveUpdate(float p_Progress)
     s_RotationX.ZAxis.z = cos(s_Pitch);
 
     // Calculate Z rotation matrix from yaw
-    float s_Yaw = m_CamStartOrientation[2] + (m_CamMoveOrientationDelta[2] * p_Progress);
+    float s_Yaw = m_CamStartOrientation[2] + (m_CamMoveOrientationDelta[2] * s_ProgressActual);
     SMatrix s_RotationZ;
 
     s_RotationZ.XAxis.x = cos(s_Yaw);
@@ -380,7 +401,7 @@ void FreeCamMotion::OnDrawUI(bool p_HasFocus)
         const auto s_ControlsExpanded = ImGui::Begin(ICON_MD_PHOTO_CAMERA " Camera Move Settings", &m_SettingsVisible);
         ImGui::PushFont(SDK()->GetImGuiRegularFont());
 
-        ImGui::SliderFloat("Duration", &m_CamMoveDuration, 0.5f, 15.0f);
+        ImGui::SliderInt("Duration", &m_CamMoveDuration, 1, 15);
 
         if (ImGui::BeginPopupContextItem("MvMode"))
         {

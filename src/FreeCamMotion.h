@@ -69,8 +69,8 @@ private:
     float m_CamStartOrientation[3];
     float m_CamMoveOrientationDelta[3];
     float m_CamMoveProgress;
-    float m_CamMoveDuration;
     float m_CamMoveSpeed;
+    int m_CamMoveDuration;
 
     CamMoveMode m_CamMoveMode;
     const char* m_MoveModeText[NUM_MOVE_MODES] = { "Linear", "Ramp Up", "Ramp Down", "Ramp Up and Down" };
