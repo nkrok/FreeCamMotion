@@ -1,5 +1,7 @@
 #pragma once
 
+#define _USE_MATH_DEFINES
+
 #include <unordered_map>
 
 #include "IPluginInterface.h"

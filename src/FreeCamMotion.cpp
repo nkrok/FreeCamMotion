@@ -32,6 +32,7 @@ FreeCamMotion::FreeCamMotion() :
     m_HasToggledFreecamBefore(false),
     m_CamMoveActive(false),
     m_CamDestinationSet(false),
+    m_CamStartSet(false),
     m_CamMoveMode(CamMoveMode::LINEAR),
     m_CamMoveDuration(5)
 {
@@ -201,13 +202,14 @@ void FreeCamMotion::BeginCameraMove()
     if (!m_CamDestinationSet)
         return;
 
-    SetCameraStart();
+    if (!m_CamStartSet)
+        SetCameraStart();
 
     m_CamMovePosDelta = m_CamDestPosition - m_CamStartPosition;
     m_CamMoveOrientationDelta[0] = m_CamDestOrientation[0] - m_CamStartOrientation[0];
 
-    // TODO: Properly determine yaw angle difference
     m_CamMoveOrientationDelta[2] = m_CamDestOrientation[2] - m_CamStartOrientation[2];
+    m_CamMoveOrientationDelta[2] += (m_CamMoveOrientationDelta[2] > M_PI) ? (M_PI * -2) : (m_CamMoveOrientationDelta[2] < -M_PI) ? (M_PI * 2) : 0;
 
     m_CamMoveProgress = 0.f;
     m_CamMoveSpeed = 1.0f / m_CamMoveDuration;
@@ -327,17 +329,22 @@ void FreeCamMotion::OnDrawMenu()
     if (ImGui::Button("Camera Move Settings"))
         m_SettingsVisible = !m_SettingsVisible;
 
-    if (ImGui::Button("Set Cam Destination"))
-        if (m_FreeCamActive)
-            SetCameraDestination();
+    bool s_StartSet = m_CamStartSet;
+    if (ImGui::Checkbox("Set Cam Start", &s_StartSet) && m_FreeCamActive)
+    {
+        m_CamStartSet = s_StartSet;
+        if (s_StartSet)
+            SetCameraStart();
+    }
 
-    if (ImGui::Button("Begin Camera Move"))
-        if (m_FreeCamActive)
-            BeginCameraMove();
+    if (ImGui::Button("Set Cam Destination") && m_FreeCamActive)
+        SetCameraDestination();
 
-    if (ImGui::Button("Jump to Cam Destination"))
-        if (m_FreeCamActive)
-            CamJumpToDestination();
+    if (ImGui::Button("Begin Camera Move") && m_FreeCamActive)
+        BeginCameraMove();
+
+    if (ImGui::Button("Jump to Cam Destination") && m_FreeCamActive)
+        CamJumpToDestination();
 }
 
 void FreeCamMotion::ToggleFreecam()
